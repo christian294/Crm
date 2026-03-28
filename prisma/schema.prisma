@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum CompanySize {
+  SOLO
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECT
+  CHURNED
+}
+
+enum ContactStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+  CHURNED
+}
+
+enum ContactSource {
+  MANUAL
+  IMPORT
+  WEB
+  REFERRAL
+  OTHER
+}
+
+enum DealStage {
+  PROSPECT
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  OTHER
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companies  Company[]
+  contacts   Contact[]
+  deals      Deal[]
+  activities Activity[]
+  tasks      Task[]
+}
+
+model Company {
+  id        String        @id @default(uuid())
+  name      String
+  domain    String?
+  industry  String?
+  size      CompanySize   @default(SMALL)
+  phone     String?
+  email     String?
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  notes     String?
+  status    CompanyStatus @default(PROSPECT)
+  metadata  Json?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  contacts   Contact[]
+  deals      Deal[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([ownerId])
+}
+
+model Contact {
+  id         String        @id @default(uuid())
+  firstName  String
+  lastName   String
+  email      String        @unique
+  phone      String?
+  title      String?
+  department String?
+  status     ContactStatus @default(LEAD)
+  source     ContactSource @default(MANUAL)
+  metadata   Json?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  deals      DealContact[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([ownerId])
+  @@index([companyId])
+}
+
+model Deal {
+  id                String    @id @default(uuid())
+  name              String
+  value             Decimal
+  currency          String    @default("USD")
+  stage             DealStage @default(PROSPECT)
+  probability       Int       @default(10)
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  contacts   DealContact[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([ownerId])
+  @@index([companyId])
+}
+
+model DealContact {
+  dealId    String
+  deal      Deal    @relation(fields: [dealId], references: [id])
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([dealId, contactId])
+  @@index([contactId])
+}
+
+model Activity {
+  id          String       @id @default(uuid())
+  type        ActivityType
+  subject     String
+  description String?
+  date        DateTime     @default(now())
+  duration    Int?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  @@index([ownerId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([companyId])
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  @@index([ownerId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([companyId])
+}
+
+model Tag {
+  id        String        @id @default(uuid())
+  name      String
+  color     String        @default("#6366f1")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  records TagOnRecord[]
+}
+
+model TagOnRecord {
+  id         String   @id @default(uuid())
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id])
+  recordId   String
+  recordType String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tagId])
+  @@index([recordId, recordType])
+}
